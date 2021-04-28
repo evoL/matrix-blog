@@ -113,7 +113,7 @@ export class MatrixClient {
       'User-Agent': 'matrix-blog/0.1.0',
     };
     if (this.accessToken) {
-      headers['Authentication'] = `Bearer ${this.accessToken}`;
+      headers['Authorization'] = `Bearer ${this.accessToken}`;
     }
     if (body) {
       headers['Content-Type'] = 'application/json';
