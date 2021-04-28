@@ -1,5 +1,5 @@
 import type fetchFn from 'node-fetch';
-import { CreateRoomRequest, SpaceSummaryRequest, SpaceSummaryResponse } from './types';
+import { CreateRoomRequest, PersistedStateEvent, SpaceSummaryRequest, SpaceSummaryResponse } from './types';
 
 interface CreateRoomResponse {
   room_id: string;
@@ -45,6 +45,19 @@ export class MatrixClient {
 
     const json = (await response.json()) as CreateRoomResponse;
     return json.room_id;
+  }
+
+  async getStateEvents(roomId: string): Promise<ReadonlyArray<PersistedStateEvent<unknown>>> {
+    const response = await this.sendRequest(
+      `/_matrix/client/r0/rooms/${roomId}/state`,
+      'get'
+    );
+    if (!response.ok) {
+      const error = (await response.json()) as MatrixErrorDetails;
+      throw new MatrixError(response.status, error);
+    }
+
+    return (await response.json()) as ReadonlyArray<PersistedStateEvent<{}>>;
   }
 
   async sendStateEvent(

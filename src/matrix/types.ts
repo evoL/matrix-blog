@@ -5,10 +5,32 @@ export interface Invite3pid {
   address: string;
 }
 
-export interface StateEvent<T extends {}> {
+export interface UnsignedData {
+  age: number;
+  transaction_id: string;
+}
+
+export interface StateEvent<T> {
   type: string;
-  state_key?: string;
+  state_key: string;
   content: T;
+}
+
+export interface PersistedStateEvent<T> extends StateEvent<T> {
+  event_id: string;
+  sender: string;
+  origin_server_ts: number;
+  unsigned?: UnsignedData;
+  room_id: string;
+  prev_content?: T;
+}
+
+export interface NameEvent {
+  name: string;
+}
+
+export interface TopicEvent {
+  topic: string;
 }
 
 export interface PowerLevelEvent {
