@@ -21,7 +21,6 @@
     "size": "size-limit",
     "analyze": "size-limit --why"
   },
-  "peerDependencies": {},
   "husky": {
     "hooks": {
       "pre-commit": "tsdx lint"
@@ -51,5 +50,8 @@
     "tsdx": "^0.14.1",
     "tslib": "^2.2.0",
     "typescript": "^3.9.9"
+  },
+  "dependencies": {
+    "node-fetch": "^3.0.0-beta.9"
   }
 }
