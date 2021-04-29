@@ -32,14 +32,14 @@
     "singleQuote": true,
     "trailingComma": "es5"
   },
-  "module": "dist/library.esm.js",
+  "module": "dist/matrix-blog.esm.js",
   "size-limit": [
     {
-      "path": "dist/library.cjs.production.min.js",
+      "path": "dist/matrix-blog.cjs.production.min.js",
       "limit": "10 KB"
     },
     {
-      "path": "dist/library.esm.js",
+      "path": "dist/matrix-blog.esm.js",
       "limit": "10 KB"
     }
   ],
