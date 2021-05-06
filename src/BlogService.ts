@@ -5,10 +5,12 @@ import {
   StateEvent,
   TopicEvent,
 } from './matrix/types';
-import { Blog, BlogWithPostMetadata, PostMetadata } from './types';
+import type { Blog, BlogWithPostMetadata, NewPost, PostMetadata } from './types';
 
 const TYPE_KEY = 'org.matrix.msc1772.type';
 const SPACE_VALUE = 'org.matrix.msc1772.space';
+const CHILD_EVENT = 'org.matrix.msc1772.space.child';
+const PARENT_EVENT = 'org.matrix.msc1772.space.parent';
 
 interface SpaceCreateEvent {
   [TYPE_KEY]?: string;
@@ -17,7 +19,17 @@ interface SpaceCreateEvent {
 export class BlogServiceError extends Error {}
 
 export class BlogService {
-  constructor(private readonly matrixClient: MatrixClient) {}
+  constructor(private readonly matrixClient: MatrixClient, private readonly roomPrefix = 'blog.') {}
+
+  createLocalRoomAlias(name: string): string {
+    return `${this.roomPrefix}${name}`;
+  }
+
+  getSlugFromRoomAlias(alias: string): string|null {
+    const rx = new RegExp(`^#${escapeRegexp(this.roomPrefix)}([^:]+)`);
+    const matches = alias.match(rx);
+    return matches && matches[1];
+  }
 
   async getBlog(id: string): Promise<Blog> {
     const stateEvents = await this.getStateEvents(id);
@@ -61,6 +73,7 @@ export class BlogService {
         id: room.room_id,
         title: room.name,
         summary: room.topic,
+        slug: room.canonical_alias && this.getSlugFromRoomAlias(room.canonical_alias)!,
       }));
 
     return {
@@ -68,6 +81,46 @@ export class BlogService {
       title: blogRoom.name,
       description: blogRoom.topic,
       posts,
+    };
+  }
+
+  async addPost(blogId: string, post: NewPost): Promise<PostMetadata> {
+    const postId = await this.matrixClient.createRoom({
+      name: post.title,
+      topic: post.summary,
+      room_alias_name: post.slug && this.createLocalRoomAlias(post.slug),
+      preset: 'public_chat',
+      initial_state: [
+        {
+          type: 'm.room.history_visibility',
+          content: {history_visibility: 'world_readable'},
+        }
+      ]
+    });
+
+    const message = this.matrixClient.sendMessageEvent(postId, 'm.room.message', {
+      msgtype: 'm.text',
+      format: 'org.matrix.custom.html',
+      body: post.text,
+      formatted_body: post.html,
+    });
+
+    const serverName = this.matrixClient.getServerName();
+    const child = this.matrixClient.sendStateEvent(blogId, CHILD_EVENT, postId, {
+      via: [serverName],
+    });
+    const parent = this.matrixClient.sendStateEvent(postId, PARENT_EVENT, blogId, {
+      via: [serverName],
+      canonical: true,
+    });
+
+    await Promise.all([message, child, parent]);
+
+    return {
+      id: postId,
+      title: post.title,
+      summary: post.summary,
+      slug: post.slug,
     };
   }
 
@@ -90,4 +143,8 @@ export class BlogService {
 
     return stateEvents;
   }
+}
+
+function escapeRegexp(string: string): string {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }

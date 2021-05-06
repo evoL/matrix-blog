@@ -24,6 +24,7 @@ export class MatrixClient {
   private accessToken: string = '';
 
   constructor(
+    private readonly serverName: string,
     private readonly homeserverUrl: string,
     private readonly fetch: typeof fetchFn,
   ) {}
@@ -31,6 +32,8 @@ export class MatrixClient {
   setAccessToken(token: string) {
     this.accessToken = token;
   }
+
+  getServerName() { return this.serverName; }
 
   async createRoom(req: CreateRoomRequest): Promise<string> {
     const response = await this.sendRequest(

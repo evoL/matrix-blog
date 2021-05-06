@@ -12,11 +12,12 @@ export interface UnsignedData {
 
 export interface StateEvent<T> {
   type: string;
-  state_key: string;
+  state_key?: string;
   content: T;
 }
 
 export interface PersistedStateEvent<T> extends StateEvent<T> {
+  state_key: string;
   event_id: string;
   sender: string;
   origin_server_ts: number;
