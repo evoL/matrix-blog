@@ -1,11 +1,19 @@
 import { MatrixClient } from './matrix/MatrixClient';
-import {
+import type {
+  CanonicalAliasEvent,
+  MembershipEvent,
   NameEvent,
   PersistedStateEvent,
+  SpaceParentEvent,
   StateEvent,
   TopicEvent,
 } from './matrix/types';
-import type { Blog, BlogWithPostMetadata, NewPost, PostMetadata } from './types';
+import type {
+  Blog,
+  BlogWithPostMetadata,
+  NewPost,
+  PostMetadata,
+} from './types';
 
 const TYPE_KEY = 'org.matrix.msc1772.type';
 const SPACE_VALUE = 'org.matrix.msc1772.space';
@@ -19,13 +27,16 @@ interface SpaceCreateEvent {
 export class BlogServiceError extends Error {}
 
 export class BlogService {
-  constructor(private readonly matrixClient: MatrixClient, private readonly roomPrefix = 'blog.') {}
+  constructor(
+    private readonly matrixClient: MatrixClient,
+    private readonly roomPrefix = 'blog.'
+  ) {}
 
   createLocalRoomAlias(name: string): string {
     return `${this.roomPrefix}${name}`;
   }
 
-  getSlugFromRoomAlias(alias: string): string|null {
+  getSlugFromRoomAlias(alias: string): string | null {
     const rx = new RegExp(`^#${escapeRegexp(this.roomPrefix)}([^:]+)`);
     const matches = alias.match(rx);
     return matches && matches[1];
@@ -36,7 +47,7 @@ export class BlogService {
 
     // Populate the name
     let name: string | undefined;
-    const nameEvent = stateEvents.find(e => e.type === 'm.room.name') as
+    const nameEvent = stateEvents.find((e) => e.type === 'm.room.name') as
       | StateEvent<NameEvent>
       | undefined;
     if (nameEvent) {
@@ -46,7 +57,7 @@ export class BlogService {
     // Populate the topic
     let topic: string | undefined;
     const topicEvent = stateEvents.find(
-      e => e.type === 'm.room.topic'
+      (e) => e.type === 'm.room.topic'
     ) as StateEvent<TopicEvent>;
     if (topicEvent) {
       topic = topicEvent.content.topic;
@@ -62,18 +73,20 @@ export class BlogService {
 
   async getBlogWithPosts(id: string): Promise<BlogWithPostMetadata> {
     const spaceSummary = await this.matrixClient.getSpaceSummary(id);
-    const blogRoom = spaceSummary.rooms.find(room => room.room_id === id);
+    const blogRoom = spaceSummary.rooms.find((room) => room.room_id === id);
     if (!blogRoom) {
       throw new BlogServiceError('Could not find blog room');
     }
 
     const posts = spaceSummary.rooms
-      .filter(room => room.room_id !== id)
-      .map(room => ({
+      .filter((room) => room.room_id !== id)
+      .map((room) => ({
         id: room.room_id,
         title: room.name,
         summary: room.topic,
-        slug: room.canonical_alias && this.getSlugFromRoomAlias(room.canonical_alias)!,
+        slug:
+          room.canonical_alias &&
+          this.getSlugFromRoomAlias(room.canonical_alias)!,
       }));
 
     return {
@@ -93,26 +106,40 @@ export class BlogService {
       initial_state: [
         {
           type: 'm.room.history_visibility',
-          content: {history_visibility: 'world_readable'},
-        }
-      ]
+          content: { history_visibility: 'world_readable' },
+        },
+      ],
     });
 
-    const message = this.matrixClient.sendMessageEvent(postId, 'm.room.message', {
-      msgtype: 'm.text',
-      format: 'org.matrix.custom.html',
-      body: post.text,
-      formatted_body: post.html,
-    });
+    const message = this.matrixClient.sendMessageEvent(
+      postId,
+      'm.room.message',
+      {
+        msgtype: 'm.text',
+        format: 'org.matrix.custom.html',
+        body: post.text,
+        formatted_body: post.html,
+      }
+    );
 
     const serverName = this.matrixClient.getServerName();
-    const child = this.matrixClient.sendStateEvent(blogId, CHILD_EVENT, postId, {
-      via: [serverName],
-    });
-    const parent = this.matrixClient.sendStateEvent(postId, PARENT_EVENT, blogId, {
-      via: [serverName],
-      canonical: true,
-    });
+    const child = this.matrixClient.sendStateEvent(
+      blogId,
+      CHILD_EVENT,
+      postId,
+      {
+        via: [serverName],
+      }
+    );
+    const parent = this.matrixClient.sendStateEvent(
+      postId,
+      PARENT_EVENT,
+      blogId,
+      {
+        via: [serverName],
+        canonical: true,
+      }
+    );
 
     await Promise.all([message, child, parent]);
 
@@ -124,6 +151,71 @@ export class BlogService {
     };
   }
 
+  async deletePost(
+    postId: string,
+    reason: string = 'Deleting blog post'
+  ): Promise<void> {
+    const stateEvents = await this.matrixClient.getStateEvents(postId);
+
+    const parentEvent = stateEvents.find((e) => e.type === PARENT_EVENT) as
+      | PersistedStateEvent<SpaceParentEvent>
+      | undefined;
+    if (!parentEvent) {
+      throw new BlogServiceError('No parent linkage');
+    }
+
+    const currentUserId = await this.matrixClient.getCurrentUser();
+
+    // In parallel:
+    const eventPromises: Array<Promise<unknown>> = [];
+
+    // 1. Remove parent link
+    eventPromises.push(
+      this.matrixClient.redactEvent(postId, parentEvent.event_id, reason)
+    );
+
+    // 2. Remove child link
+    const blogId = parentEvent.state_key!;
+    eventPromises.push(
+      this.matrixClient.getStateEvents(blogId).then((parentStateEvents) => {
+        const childEvent = parentStateEvents.find(
+          (e) => e.type === CHILD_EVENT && e.state_key === postId
+        );
+        if (!childEvent) return;
+        return this.matrixClient.redactEvent(
+          blogId,
+          childEvent.event_id,
+          reason
+        );
+      })
+    );
+
+    // 3. Remove alias
+    const aliasEvent = stateEvents.find(
+      (e) => e.type === 'm.room.canonical_alias'
+    ) as PersistedStateEvent<CanonicalAliasEvent> | undefined;
+    if (aliasEvent?.content.alias != null) {
+      eventPromises.push(
+        this.matrixClient.removeRoomAlias(aliasEvent.content.alias)
+      );
+    }
+
+    // 4. Remove all other members
+    const memberships = stateEvents.filter(
+      (e) => e.type === 'm.room.member' && e.state_key !== currentUserId
+    ) as ReadonlyArray<StateEvent<MembershipEvent>>;
+    for (const membership of memberships) {
+      eventPromises.push(
+        this.matrixClient.kickUser(postId, membership.state_key!, reason)
+      );
+    }
+
+    await Promise.all(eventPromises);
+
+    // Finally, leave the room.
+    await this.matrixClient.leaveRoom(postId);
+  }
+
   private async getStateEvents(
     blogId: string
   ): Promise<ReadonlyArray<PersistedStateEvent<unknown>>> {
@@ -131,7 +223,7 @@ export class BlogService {
 
     // Validate that this is indeed a blog room by checking if it's a space.
     // Yes, this is hacky.
-    const createEvent = stateEvents.find(e => e.type === 'm.room.create') as
+    const createEvent = stateEvents.find((e) => e.type === 'm.room.create') as
       | StateEvent<SpaceCreateEvent>
       | undefined;
     if (!createEvent) {

@@ -1,3 +1,8 @@
+export interface Invite {
+  display_name: string;
+  signed: { mxid: string; signatures: unknown; token: string };
+}
+
 export interface Invite3pid {
   id_server: string;
   id_access_token: string;
@@ -7,7 +12,7 @@ export interface Invite3pid {
 
 export interface UnsignedData {
   age: number;
-  transaction_id: string;
+  transaction_id?: string;
 }
 
 export interface StateEvent<T> {
@@ -34,6 +39,19 @@ export interface TopicEvent {
   topic: string;
 }
 
+export interface CanonicalAliasEvent {
+  alias?: string;
+  alt_aliases?: readonly string[];
+}
+
+export interface MembershipEvent {
+  avatar_url?: string;
+  displayname?: string | null;
+  membership: 'invite' | 'join' | 'knock' | 'leave' | 'ban';
+  is_direct?: boolean;
+  third_party_invite?: Invite;
+}
+
 export interface PowerLevelEvent {
   ban?: number;
   events?: Record<string, number>;
@@ -51,6 +69,11 @@ export interface SpaceChildEvent {
   via: ReadonlyArray<string>;
   suggested?: boolean;
   order?: string;
+}
+
+export interface SpaceParentEvent {
+  via: ReadonlyArray<string>;
+  canonical?: boolean;
 }
 
 export interface PublicRoomsChunk {
