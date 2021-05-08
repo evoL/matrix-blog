@@ -41,10 +41,6 @@ export class MatrixClient {
       'post',
       req
     );
-    if (!response.ok) {
-      const error = (await response.json()) as MatrixErrorDetails;
-      throw new MatrixError(response.status, error);
-    }
 
     const json = (await response.json()) as CreateRoomResponse;
     return json.room_id;
@@ -55,10 +51,6 @@ export class MatrixClient {
       `/_matrix/client/r0/rooms/${roomId}/state`,
       'get'
     );
-    if (!response.ok) {
-      const error = (await response.json()) as MatrixErrorDetails;
-      throw new MatrixError(response.status, error);
-    }
 
     return (await response.json()) as ReadonlyArray<PersistedStateEvent<{}>>;
   }
@@ -74,10 +66,6 @@ export class MatrixClient {
       'put',
       event
     );
-    if (!response.ok) {
-      const error = (await response.json()) as MatrixErrorDetails;
-      throw new MatrixError(response.status, error);
-    }
 
     const json = (await response.json()) as SendEventResponse;
     return json.event_id;
@@ -94,10 +82,6 @@ export class MatrixClient {
       'put',
       event
     );
-    if (!response.ok) {
-      const error = (await response.json()) as MatrixErrorDetails;
-      throw new MatrixError(response.status, error);
-    }
 
     const json = (await response.json()) as SendEventResponse;
     return json.event_id;
@@ -114,24 +98,16 @@ export class MatrixClient {
       'put',
       {reason},
     );
-    if (!response.ok) {
-      const error = (await response.json()) as MatrixErrorDetails;
-      throw new MatrixError(response.status, error);
-    }
 
     const json = (await response.json()) as SendEventResponse;
     return json.event_id;
   }
 
   async leaveRoom(roomId: string): Promise<void> {
-    const response = await this.sendRequest(
+    await this.sendRequest(
       `/_matrix/client/r0/rooms/${roomId}/leave`,
       'post'
     );
-    if (!response.ok) {
-      const error = (await response.json()) as MatrixErrorDetails;
-      throw new MatrixError(response.status, error);
-    }
   }
 
   async kickUser(
@@ -139,15 +115,11 @@ export class MatrixClient {
     userId: string,
     reason?: string
   ): Promise<void> {
-    const response = await this.sendRequest(
+    await this.sendRequest(
       `/_matrix/client/r0/rooms/${roomId}/kick`,
       'post',
-      {user_id: userId, reason},
+      { user_id: userId, reason }
     );
-    if (!response.ok) {
-      const error = (await response.json()) as MatrixErrorDetails;
-      throw new MatrixError(response.status, error);
-    }
   }
 
   async getSpaceSummary(
@@ -159,15 +131,11 @@ export class MatrixClient {
       'post',
       options
     );
-    if (!response.ok) {
-      const error = (await response.json()) as MatrixErrorDetails;
-      throw new MatrixError(response.status, error);
-    }
 
     return (await response.json()) as SpaceSummaryResponse;
   }
 
-  private sendRequest(
+  private async sendRequest(
     endpoint: string,
     method: 'post' | 'put' | 'get' | 'delete',
     body?: {}
@@ -182,11 +150,18 @@ export class MatrixClient {
       headers['Content-Type'] = 'application/json';
     }
 
-    return this.fetch(`${this.homeserverUrl}${endpoint}`, {
+    const response = await this.fetch(`${this.homeserverUrl}${endpoint}`, {
       method,
       body: body && JSON.stringify(body),
       headers,
     });
+
+    if (!response.ok) {
+      const error = (await response.json()) as MatrixErrorDetails;
+      throw new MatrixError(response.status, error);
+    }
+
+    return response;
   }
 }
 
