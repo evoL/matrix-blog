@@ -1,5 +1,10 @@
 import type fetchFn from 'node-fetch';
-import { CreateRoomRequest, PersistedStateEvent, SpaceSummaryRequest, SpaceSummaryResponse } from './types';
+import {
+  CreateRoomRequest,
+  PersistedStateEvent,
+  SpaceSummaryRequest,
+  SpaceSummaryResponse,
+} from './types';
 
 interface CreateRoomResponse {
   room_id: string;
@@ -22,18 +27,33 @@ export class MatrixError extends Error {
 
 export class MatrixClient {
   private accessToken: string = '';
+  private currentUserId?: string;
 
   constructor(
     private readonly serverName: string,
     private readonly homeserverUrl: string,
-    private readonly fetch: typeof fetchFn,
+    private readonly fetch: typeof fetchFn
   ) {}
 
   setAccessToken(token: string) {
     this.accessToken = token;
   }
 
-  getServerName() { return this.serverName; }
+  getServerName() {
+    return this.serverName;
+  }
+
+  async getCurrentUser(): Promise<string> {
+    if (this.currentUserId == null) {
+      const response = await this.sendRequest(
+        '/_matrix/client/r0/account/whoami',
+        'get'
+      );
+      const json = (await response.json()) as { user_id: string };
+      this.currentUserId = json.user_id;
+    }
+    return this.currentUserId;
+  }
 
   async createRoom(req: CreateRoomRequest): Promise<string> {
     const response = await this.sendRequest(
@@ -46,7 +66,9 @@ export class MatrixClient {
     return json.room_id;
   }
 
-  async getStateEvents(roomId: string): Promise<ReadonlyArray<PersistedStateEvent<unknown>>> {
+  async getStateEvents(
+    roomId: string
+  ): Promise<ReadonlyArray<PersistedStateEvent<unknown>>> {
     const response = await this.sendRequest(
       `/_matrix/client/r0/rooms/${roomId}/state`,
       'get'
@@ -96,7 +118,7 @@ export class MatrixClient {
     const response = await this.sendRequest(
       `/_matrix/client/r0/rooms/${roomId}/redact/${eventId}/${txnId}`,
       'put',
-      {reason},
+      { reason }
     );
 
     const json = (await response.json()) as SendEventResponse;
@@ -104,10 +126,7 @@ export class MatrixClient {
   }
 
   async leaveRoom(roomId: string): Promise<void> {
-    await this.sendRequest(
-      `/_matrix/client/r0/rooms/${roomId}/leave`,
-      'post'
-    );
+    await this.sendRequest(`/_matrix/client/r0/rooms/${roomId}/leave`, 'post');
   }
 
   async kickUser(
@@ -115,11 +134,10 @@ export class MatrixClient {
     userId: string,
     reason?: string
   ): Promise<void> {
-    await this.sendRequest(
-      `/_matrix/client/r0/rooms/${roomId}/kick`,
-      'post',
-      { user_id: userId, reason }
-    );
+    await this.sendRequest(`/_matrix/client/r0/rooms/${roomId}/kick`, 'post', {
+      user_id: userId,
+      reason,
+    });
   }
 
   async removeRoomAlias(alias: string): Promise<void> {
