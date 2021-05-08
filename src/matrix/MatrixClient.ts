@@ -142,7 +142,7 @@ export class MatrixClient {
 
   async removeRoomAlias(alias: string): Promise<void> {
     await this.sendRequest(
-      `/_matrix/client/r0/directory/room/${alias}`,
+      `/_matrix/client/r0/directory/room/${encodeURIComponent(alias)}`,
       'delete'
     );
   }
