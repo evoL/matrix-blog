@@ -103,6 +103,53 @@ export class MatrixClient {
     return json.event_id;
   }
 
+  async redactEvent(
+    roomId: string,
+    eventId: string,
+    reason?: string
+  ): Promise<string> {
+    const txnId = randomString(8);
+    const response = await this.sendRequest(
+      `/_matrix/client/r0/rooms/${roomId}/redact/${eventId}/${txnId}`,
+      'put',
+      {reason},
+    );
+    if (!response.ok) {
+      const error = (await response.json()) as MatrixErrorDetails;
+      throw new MatrixError(response.status, error);
+    }
+
+    const json = (await response.json()) as SendEventResponse;
+    return json.event_id;
+  }
+
+  async leaveRoom(roomId: string): Promise<void> {
+    const response = await this.sendRequest(
+      `/_matrix/client/r0/rooms/${roomId}/leave`,
+      'post'
+    );
+    if (!response.ok) {
+      const error = (await response.json()) as MatrixErrorDetails;
+      throw new MatrixError(response.status, error);
+    }
+  }
+
+  async kickUser(
+    roomId: string,
+    userId: string,
+    reason?: string
+  ): Promise<void> {
+    const response = await this.sendRequest(
+      `/_matrix/client/r0/rooms/${roomId}/kick`,
+      'post',
+      {user_id: userId, reason},
+    );
+    if (!response.ok) {
+      const error = (await response.json()) as MatrixErrorDetails;
+      throw new MatrixError(response.status, error);
+    }
+  }
+
   async getSpaceSummary(
     roomId: string,
     options: SpaceSummaryRequest = {}
