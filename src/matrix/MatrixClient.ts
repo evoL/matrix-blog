@@ -122,6 +122,13 @@ export class MatrixClient {
     );
   }
 
+  async removeRoomAlias(alias: string): Promise<void> {
+    await this.sendRequest(
+      `/_matrix/client/r0/directory/room/${alias}`,
+      'delete'
+    );
+  }
+
   async getSpaceSummary(
     roomId: string,
     options: SpaceSummaryRequest = {}
