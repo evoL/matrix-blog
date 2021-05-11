@@ -327,7 +327,8 @@ export class BlogService {
   }
 
   private async setPostSlug(postId: string, slug: string): Promise<void> {
-    const newAlias = this.createRoomAlias(slug);
+    // Allow to unset a slug by passing an empty string.
+    const newAlias = slug && this.createRoomAlias(slug);
 
     // Get the old alias
     let oldAlias: string | undefined;
@@ -345,13 +346,15 @@ export class BlogService {
     if (oldAlias === newAlias) return;
 
     // Swap aliases
-    await this.matrixClient.addRoomAlias(newAlias, postId);
-    await this.matrixClient.sendStateEvent(
-      postId,
-      'm.room.canonical_alias',
-      '',
-      { alias: newAlias }
-    );
+    if (newAlias) {
+      await this.matrixClient.addRoomAlias(newAlias, postId);
+      await this.matrixClient.sendStateEvent(
+        postId,
+        'm.room.canonical_alias',
+        '',
+        { alias: newAlias }
+      );
+    }
     if (oldAlias) {
       await this.matrixClient.removeRoomAlias(oldAlias);
     }
