@@ -20,6 +20,8 @@ const SPACE_VALUE = 'org.matrix.msc1772.space';
 const CHILD_EVENT = 'org.matrix.msc1772.space.child';
 const PARENT_EVENT = 'org.matrix.msc1772.space.parent';
 
+const POST_CONTENT_EVENT = 'co.hirsz.blog.post_content';
+
 interface SpaceCreateEvent {
   [TYPE_KEY]?: string;
 }
@@ -141,7 +143,12 @@ export class BlogService {
       }
     );
 
-    await Promise.all([message, child, parent]);
+    const [messageEventId] = await Promise.all([message, child, parent]);
+
+    // Mark the message event ID.
+    await this.matrixClient.sendStateEvent(postId, POST_CONTENT_EVENT, '', {
+      event_id: messageEventId,
+    });
 
     return {
       id: postId,
