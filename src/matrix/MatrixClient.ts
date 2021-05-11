@@ -66,6 +66,31 @@ export class MatrixClient {
     return json.room_id;
   }
 
+  async getEvent(
+    roomId: string,
+    eventId: string
+  ): Promise<PersistedStateEvent<unknown>> {
+    const response = await this.sendRequest(
+      `/_matrix/client/r0/rooms/${roomId}/event/${eventId}`,
+      'get'
+    );
+
+    return (await response.json()) as PersistedStateEvent<unknown>;
+  }
+
+  async getStateEvent(
+    roomId: string,
+    type: string,
+    stateKey: string = ''
+  ): Promise<unknown> {
+    const response = await this.sendRequest(
+      `/_matrix/client/r0/rooms/${roomId}/state/${type}/${stateKey}`,
+      'get'
+    );
+
+    return await response.json();
+  }
+
   async getStateEvents(
     roomId: string
   ): Promise<ReadonlyArray<PersistedStateEvent<unknown>>> {
