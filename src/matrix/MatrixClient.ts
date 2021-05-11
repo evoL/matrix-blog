@@ -167,7 +167,7 @@ export class MatrixClient {
 
   async addRoomAlias(alias: string, roomId: string): Promise<void> {
     await this.sendRequest(
-      `/_matrix/client/r0/directory/room/${alias}`,
+      `/_matrix/client/r0/directory/room/${encodeURIComponent(alias)}`,
       'put',
       { room_id: roomId }
     );
