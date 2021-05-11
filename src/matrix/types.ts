@@ -65,6 +65,17 @@ export interface PowerLevelEvent {
   notifications?: { room?: number };
 }
 
+export interface MessageEvent {
+  msgtype: string;
+  body: string;
+}
+
+export interface TextMessageEvent extends MessageEvent {
+  msgtype: 'm.text';
+  format?: 'org.matrix.custom.html';
+  formatted_body?: string;
+}
+
 export interface SpaceChildEvent {
   via: ReadonlyArray<string>;
   suggested?: boolean;

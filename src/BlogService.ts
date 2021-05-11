@@ -1,4 +1,4 @@
-import { MatrixClient } from './matrix/MatrixClient';
+import { MatrixClient, MatrixError } from './matrix/MatrixClient';
 import type {
   CanonicalAliasEvent,
   MembershipEvent,
@@ -6,11 +6,13 @@ import type {
   PersistedStateEvent,
   SpaceParentEvent,
   StateEvent,
+  TextMessageEvent,
   TopicEvent,
 } from './matrix/types';
 import type {
   Blog,
   BlogWithPostMetadata,
+  Post,
   NewPost,
   PostMetadata,
 } from './types';
@@ -25,6 +27,9 @@ const POST_CONTENT_EVENT = 'co.hirsz.blog.post_content';
 interface SpaceCreateEvent {
   [TYPE_KEY]?: string;
 }
+interface PostContentEvent {
+  event_id: string;
+}
 
 export class BlogServiceError extends Error {}
 
@@ -38,10 +43,17 @@ export class BlogService {
     return `${this.roomPrefix}${name}`;
   }
 
-  getSlugFromRoomAlias(alias: string): string | null {
+  createRoomAlias(slug: string): string {
+    return `#${this.createLocalRoomAlias(
+      slug
+    )}:${this.matrixClient.getServerName()}`;
+  }
+
+  getSlugFromRoomAlias(alias: string): string | undefined {
     const rx = new RegExp(`^#${escapeRegexp(this.roomPrefix)}([^:]+)`);
     const matches = alias.match(rx);
-    return matches && matches[1];
+    if (!matches) return undefined;
+    return matches[1];
   }
 
   async getBlog(id: string): Promise<Blog> {
@@ -88,7 +100,7 @@ export class BlogService {
         summary: room.topic,
         slug:
           room.canonical_alias &&
-          this.getSlugFromRoomAlias(room.canonical_alias)!,
+          this.getSlugFromRoomAlias(room.canonical_alias),
       }));
 
     return {
@@ -96,6 +108,24 @@ export class BlogService {
       title: blogRoom.name,
       description: blogRoom.topic,
       posts,
+    };
+  }
+
+  async getPost(postId: string): Promise<Post> {
+    const [title, summary, slug, content] = await Promise.all([
+      this.getPostTitle(postId),
+      this.getPostSummary(postId),
+      this.getPostSlug(postId),
+      this.getPostContent(postId),
+    ]);
+
+    return {
+      id: postId,
+      title,
+      summary,
+      slug,
+      text: content.text,
+      html: content.html,
     };
   }
 
@@ -221,6 +251,160 @@ export class BlogService {
 
     // Finally, leave the room.
     await this.matrixClient.leaveRoom(postId);
+  }
+
+  async editPost(postId: string, post: Partial<NewPost>): Promise<void> {
+    const promises: Array<Promise<unknown>> = [];
+
+    if (post.title != null) {
+      promises.push(this.setPostTitle(postId, post.title));
+    }
+    if (post.summary != null) {
+      promises.push(this.setPostSummary(postId, post.summary));
+    }
+    if (post.slug != null) {
+      promises.push(this.setPostSlug(postId, post.slug));
+    }
+    if (post.text != null && post.html != null) {
+      promises.push(
+        this.setPostContent(postId, { text: post.text, html: post.html })
+      );
+    }
+
+    await Promise.all(promises);
+  }
+
+  private async getPostTitle(postId: string): Promise<string> {
+    const event = (await this.matrixClient.getStateEvent(
+      postId,
+      'm.room.name'
+    )) as NameEvent;
+    return event.name;
+  }
+
+  private setPostTitle(postId: string, title: string): Promise<string> {
+    return this.matrixClient.sendStateEvent(postId, 'm.room.name', '', {
+      name: title,
+    });
+  }
+
+  private async getPostSummary(postId: string): Promise<string | undefined> {
+    try {
+      const event = (await this.matrixClient.getStateEvent(
+        postId,
+        'm.room.topic'
+      )) as TopicEvent;
+      return event.topic;
+    } catch (e) {
+      if (e instanceof MatrixError && e.status === 404) {
+        return undefined;
+      }
+      throw e;
+    }
+  }
+
+  private setPostSummary(postId: string, summary: string): Promise<string> {
+    return this.matrixClient.sendStateEvent(postId, 'm.room.topic', '', {
+      topic: summary,
+    });
+  }
+
+  private async getPostSlug(postId: string): Promise<string | undefined> {
+    try {
+      const { alias } = (await this.matrixClient.getStateEvent(
+        postId,
+        'm.room.canonical_alias'
+      )) as CanonicalAliasEvent;
+      if (!alias) return undefined;
+
+      return this.getSlugFromRoomAlias(alias);
+    } catch (e) {
+      if (e instanceof MatrixError && e.status === 404) {
+        return undefined;
+      }
+      throw e;
+    }
+  }
+
+  private async setPostSlug(postId: string, slug: string): Promise<void> {
+    const newAlias = this.createRoomAlias(slug);
+
+    // Get the old alias
+    let oldAlias: string | undefined;
+    try {
+      const aliasEvent = (await this.matrixClient.getStateEvent(
+        postId,
+        'm.room.canonical_alias'
+      )) as CanonicalAliasEvent;
+      oldAlias = aliasEvent.alias;
+    } catch (e) {
+      // It's fine if there's no event.
+    }
+
+    // If the old alias is the same as the new one, do nothing.
+    if (oldAlias === newAlias) return;
+
+    // Swap aliases
+    await this.matrixClient.addRoomAlias(newAlias, postId);
+    await this.matrixClient.sendStateEvent(
+      postId,
+      'm.room.canonical_alias',
+      '',
+      { alias: newAlias }
+    );
+    if (oldAlias) {
+      await this.matrixClient.removeRoomAlias(oldAlias);
+    }
+  }
+
+  private async getPostContent(
+    postId: string
+  ): Promise<{ text: string; html: string }> {
+    // Find the message event ID
+    const postContent = (await this.matrixClient.getStateEvent(
+      postId,
+      POST_CONTENT_EVENT
+    )) as PostContentEvent;
+
+    // Get the message
+    const message = await this.matrixClient.getEvent(
+      postId,
+      postContent.event_id
+    );
+    const content = message.content as TextMessageEvent;
+    return {
+      text: content.body,
+      html: content.formatted_body!,
+    };
+  }
+
+  private async setPostContent(
+    postId: string,
+    content: { text: string; html: string }
+  ): Promise<string> {
+    // Find the message event ID
+    const postContent = (await this.matrixClient.getStateEvent(
+      postId,
+      POST_CONTENT_EVENT
+    )) as PostContentEvent;
+
+    // Send the new message
+    return await this.matrixClient.sendMessageEvent(postId, 'm.room.message', {
+      msgtype: 'm.text',
+      format: 'org.matrix.custom.html',
+      body: `(edited) ${content.text}`,
+      formatted_body: `<p>(edited)</p> ${content.html}`,
+      'm.new_content': {
+        msgtype: 'm.text',
+        format: 'org.matrix.custom.html',
+        body: content.text,
+        formatted_body: content.html,
+      },
+      'm.relates_to': {
+        rel_type: 'm.replace',
+        event_id: postContent.event_id,
+      },
+    });
   }
 
   private async getStateEvents(
