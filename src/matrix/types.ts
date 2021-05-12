@@ -12,7 +12,7 @@ export interface Invite3pid {
 
 export interface UnsignedData {
   age: number;
-  transaction_id?: string;
+  [key: string]: any;
 }
 
 export interface StateEvent<T> {

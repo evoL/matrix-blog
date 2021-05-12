@@ -14,6 +14,7 @@ import type {
   BlogWithPostMetadata,
   Post,
   NewPost,
+  PostContent,
   PostMetadata,
 } from './types';
 
@@ -138,8 +139,7 @@ export class BlogService {
       title,
       summary,
       slug,
-      text: content.text,
-      html: content.html,
+      ...content,
     };
   }
 
@@ -374,9 +374,7 @@ export class BlogService {
     }
   }
 
-  private async getPostContent(
-    postId: string
-  ): Promise<{ text: string; html: string }> {
+  private async getPostContent(postId: string): Promise<PostContent> {
     // Find the message event ID
     const postContent = (await this.matrixClient.getStateEvent(
       postId,
@@ -392,6 +390,9 @@ export class BlogService {
     return {
       text: content.body,
       html: content.formatted_body!,
+      created_ms: message.origin_server_ts,
+      edited_ms:
+        message.unsigned?.['m.relations']?.['m.replace'].origin_server_ts,
     };
   }
 

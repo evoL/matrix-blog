@@ -9,6 +9,12 @@ export interface PostMetadata {
   summary?: string;
   slug?: string;
 }
+export interface PostContent {
+  text: string;
+  html: string;
+  created_ms: number;
+  edited_ms?: number;
+}
 export interface NewPost {
   title: string;
   summary?: string;
@@ -16,11 +22,8 @@ export interface NewPost {
   text: string;
   html: string;
 }
-export interface Post extends PostMetadata {
-  title: string;
-  text: string;
-  html: string;
-}
+export type Post = PostMetadata & PostContent & { title: string };
+
 export interface BlogWithPostMetadata extends Blog {
   posts: ReadonlyArray<PostMetadata>;
 }
