@@ -85,6 +85,20 @@ export class BlogService {
     return blogWithPosts.posts;
   }
 
+  async getFullPosts(blogId: string): Promise<ReadonlyArray<Post>> {
+    const postMetadata = await this.getPosts(blogId);
+
+    // Get the content for each post.
+    const contents = await Promise.all(
+      postMetadata.map((post) => this.getPostContent(post.id))
+    );
+
+    // Zip the arrays together to form full posts.
+    return postMetadata.map(
+      (post, i) => Object.assign(post, contents[i]) as Post
+    );
+  }
+
   async getBlogWithPosts(id: string): Promise<BlogWithPostMetadata> {
     const spaceSummary = await this.matrixClient.getSpaceSummary(id);
     const blogRoom = spaceSummary.rooms.find((room) => room.room_id === id);
