@@ -375,24 +375,32 @@ export class BlogService {
   }
 
   private async getPostContent(postId: string): Promise<PostContent> {
+    // Get state events
+    const stateEvents = await this.matrixClient.getStateEvents(postId);
+
     // Find the message event ID
-    const postContent = (await this.matrixClient.getStateEvent(
-      postId,
-      POST_CONTENT_EVENT
-    )) as PostContentEvent;
+    const postContent = stateEvents.find(event => event.type === POST_CONTENT_EVENT) as PersistedStateEvent<PostContentEvent> | undefined;
+    if (!postContent) {
+      throw new BlogServiceError('Could not find post content event');
+    }
+
+    // Find the latest slug event to check if the post is published
+    const aliasEvent = stateEvents.find(event => event.type === 'm.room.canonical_alias') as PersistedStateEvent<CanonicalAliasEvent> | undefined;
+    const publishedMs = (aliasEvent?.content.alias) ? aliasEvent.origin_server_ts : undefined;
 
     // Get the message
     const message = await this.matrixClient.getEvent(
       postId,
-      postContent.event_id
+      postContent.content.event_id
     );
     const content = message.content as TextMessageEvent;
+
     return {
       text: content.body,
       html: content.formatted_body!,
       created_ms: message.origin_server_ts,
-      edited_ms:
-        message.unsigned?.['m.relations']?.['m.replace'].origin_server_ts,
+      published_ms: publishedMs,
+      edited_ms: message.unsigned?.['m.relations']?.['m.replace'].origin_server_ts,
     };
   }
 

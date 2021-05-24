@@ -14,6 +14,7 @@ export interface PostContent {
   html: string;
   created_ms: number;
   edited_ms?: number;
+  published_ms?: number;
 }
 export interface NewPost {
   title: string;
