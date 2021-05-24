@@ -18,10 +18,10 @@ import type {
   PostMetadata,
 } from './types';
 
-const TYPE_KEY = 'org.matrix.msc1772.type';
-const SPACE_VALUE = 'org.matrix.msc1772.space';
-const CHILD_EVENT = 'org.matrix.msc1772.space.child';
-const PARENT_EVENT = 'org.matrix.msc1772.space.parent';
+const TYPE_KEY = 'type';
+const SPACE_VALUE = 'm.space';
+const CHILD_EVENT = 'm.space.child';
+const PARENT_EVENT = 'm.space.parent';
 
 const POST_CONTENT_EVENT = 'co.hirsz.blog.post_content';
 
