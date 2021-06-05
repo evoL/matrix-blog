@@ -407,7 +407,7 @@ export class BlogService {
       created_ms: message.origin_server_ts,
       published_ms: publishedMs,
       edited_ms:
-        message.unsigned?.['m.relations']?.['m.replace'].origin_server_ts,
+        message.unsigned?.['m.relations']?.['m.replace']?.origin_server_ts,
     };
   }
 
