@@ -18,7 +18,8 @@
   },
   "scripts": {
     "start": "microbundle watch",
-    "build": "microbundle"
+    "build": "microbundle",
+    "lint": "eslint . --ext .js,.ts"
   },
   "prettier": {
     "printWidth": 80,
@@ -28,6 +29,10 @@
     "endOfLine": "auto"
   },
   "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^4.31.1",
+    "@typescript-eslint/parser": "^4.31.1",
+    "eslint": "^7.32.0",
+    "eslint-config-prettier": "^8.3.0",
     "microbundle": "^0.13.3",
     "prettier": "^2.2.1",
     "tslib": "^2.3.1",
