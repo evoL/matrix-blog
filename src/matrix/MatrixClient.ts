@@ -26,7 +26,7 @@ export class MatrixError extends Error {
 }
 
 export class MatrixClient {
-  private accessToken: string = '';
+  private accessToken = '';
   private currentUserId?: string;
 
   constructor(
@@ -35,11 +35,11 @@ export class MatrixClient {
     private readonly fetch: typeof fetchFn
   ) {}
 
-  setAccessToken(token: string) {
+  setAccessToken(token: string): void {
     this.accessToken = token;
   }
 
-  getServerName() {
+  getServerName(): string {
     return this.serverName;
   }
 
@@ -81,7 +81,7 @@ export class MatrixClient {
   async getStateEvent(
     roomId: string,
     type: string,
-    stateKey: string = ''
+    stateKey = ''
   ): Promise<unknown> {
     const response = await this.sendRequest(
       `/_matrix/client/r0/rooms/${roomId}/state/${type}/${stateKey}`,
@@ -99,14 +99,18 @@ export class MatrixClient {
       'get'
     );
 
-    return (await response.json()) as ReadonlyArray<PersistedStateEvent<{}>>;
+    return (await response.json()) as ReadonlyArray<
+      PersistedStateEvent<unknown>
+    >;
   }
 
   async sendStateEvent(
     roomId: string,
     eventType: string,
     stateKey: string,
-    event: {}
+    // object is a valid type here, we don't care about index signatures.
+    // eslint-disable-next-line @typescript-eslint/ban-types
+    event: object
   ): Promise<string> {
     const response = await this.sendRequest(
       `/_matrix/client/r0/rooms/${roomId}/state/${eventType}/${stateKey}`,
@@ -121,7 +125,7 @@ export class MatrixClient {
   async sendMessageEvent(
     roomId: string,
     eventType: string,
-    event: {}
+    event: Record<string, unknown>
   ): Promise<string> {
     const txnId = randomString(8);
     const response = await this.sendRequest(
@@ -196,7 +200,9 @@ export class MatrixClient {
   private async sendRequest(
     endpoint: string,
     method: 'post' | 'put' | 'get' | 'delete',
-    body?: {}
+    // object is a valid type here, we don't care about index signatures.
+    // eslint-disable-next-line @typescript-eslint/ban-types
+    body?: object
   ) {
     const headers: Record<string, string> = {
       'User-Agent': 'matrix-blog/0.1.0',

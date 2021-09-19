@@ -52,7 +52,7 @@ export class BlogService {
 
   getSlugFromRoomAlias(alias: string): string | undefined {
     const rx = new RegExp(`^#${escapeRegexp(this.roomPrefix)}([^:]+)`);
-    const matches = alias.match(rx);
+    const matches = rx.exec(alias);
     if (!matches) return undefined;
     return matches[1];
   }
@@ -204,7 +204,7 @@ export class BlogService {
 
   async deletePost(
     postId: string,
-    reason: string = 'Deleting blog post'
+    reason = 'Deleting blog post'
   ): Promise<void> {
     const stateEvents = await this.matrixClient.getStateEvents(postId);
 
@@ -226,7 +226,7 @@ export class BlogService {
     );
 
     // 2. Remove child link
-    const blogId = parentEvent.state_key!;
+    const blogId = parentEvent.state_key;
     eventPromises.push(
       this.matrixClient.getStateEvents(blogId).then((parentStateEvents) => {
         const childEvent = parentStateEvents.find(
@@ -254,10 +254,10 @@ export class BlogService {
     // 4. Remove all other members
     const memberships = stateEvents.filter(
       (e) => e.type === 'm.room.member' && e.state_key !== currentUserId
-    ) as ReadonlyArray<StateEvent<MembershipEvent>>;
+    ) as ReadonlyArray<PersistedStateEvent<MembershipEvent>>;
     for (const membership of memberships) {
       eventPromises.push(
-        this.matrixClient.kickUser(postId, membership.state_key!, reason)
+        this.matrixClient.kickUser(postId, membership.state_key, reason)
       );
     }
 
@@ -401,13 +401,22 @@ export class BlogService {
     );
     const content = message.content as TextMessageEvent;
 
+    if (!content.formatted_body) {
+      throw new BlogServiceError('No formatted_body in the blog post event');
+    }
+
+    // Extract the edit timestamp.
+    const relations = message.unsigned?.['m.relations'] as
+      | { 'm.replace'?: { origin_server_ts: number } }
+      | undefined;
+    const editedMs = relations?.['m.replace']?.origin_server_ts;
+
     return {
       text: content.body,
-      html: content.formatted_body!,
+      html: content.formatted_body,
       created_ms: message.origin_server_ts,
       published_ms: publishedMs,
-      edited_ms:
-        message.unsigned?.['m.relations']?.['m.replace']?.origin_server_ts,
+      edited_ms: editedMs,
     };
   }
 

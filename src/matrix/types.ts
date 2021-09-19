@@ -12,7 +12,7 @@ export interface Invite3pid {
 
 export interface UnsignedData {
   age: number;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export interface StateEvent<T> {
