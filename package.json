@@ -3,26 +3,22 @@
   "author": "Rafał Hirsz",
   "version": "0.1.1",
   "license": "MIT",
-  "main": "dist/index.js",
+  "type": "module",
+  "source": "src/index.ts",
+  "main": "dist/matrix-blog.cjs",
   "typings": "dist/index.d.ts",
+  "module": "dist/matrix-blog.esm.js",
+  "exports": "./dist/matrix-blog.es2017.js",
   "files": [
     "dist",
     "src"
   ],
   "engines": {
-    "node": ">=10"
+    "node": ">=12"
   },
   "scripts": {
-    "start": "tsdx watch",
-    "build": "tsdx build",
-    "test": "tsdx test",
-    "lint": "tsdx lint src",
-    "prepare": "tsdx build"
-  },
-  "husky": {
-    "hooks": {
-      "pre-commit": "tsdx lint"
-    }
+    "start": "microbundle watch",
+    "build": "microbundle"
   },
   "prettier": {
     "printWidth": 80,
@@ -31,12 +27,9 @@
     "trailingComma": "es5",
     "endOfLine": "auto"
   },
-  "module": "dist/matrix-blog.esm.js",
   "devDependencies": {
-    "husky": "^6.0.0",
+    "microbundle": "^0.13.3",
     "prettier": "^2.2.1",
-    "size-limit": "^4.10.2",
-    "tsdx": "^0.14.1",
     "tslib": "^2.2.0",
     "typescript": "^3.9.9"
   },
