@@ -21,6 +21,13 @@ export interface StateEvent<T> {
   content: T;
 }
 
+export interface StrippedStateEvent<T> {
+  type: string;
+  state_key: string;
+  sender: string;
+  content: T;
+}
+
 export interface PersistedStateEvent<T> extends StateEvent<T> {
   state_key: string;
   event_id: string;
@@ -114,12 +121,36 @@ export interface CreateRoomRequest {
   power_level_content_override?: PowerLevelEvent;
 }
 
-export interface SpaceSummaryRequest {
-  suggested_only?: boolean;
-  max_rooms_per_space?: number;
+export interface StrippedChildStateEvent extends StrippedStateEvent<SpaceChildEvent> {
+  origin_server_ts: number;
 }
 
-export interface SpaceSummaryResponse {
-  rooms: ReadonlyArray<PublicRoomsChunk>;
+export interface SpaceHierarchyRoomsChunk {
+  allowed_room_ids?: string[];
+  avatar_url?: string;
+  canonical_alias?: string;
+  children_state: ReadonlyArray<StrippedChildStateEvent>;
+  encryption?: string;
+  guest_can_join: boolean;
+  join_rule?: string;
+  name?: string;
+  num_joined_members: number;
+  room_id: string;
+  room_type?: string;
+  room_version?: string;
+  topic?: string;
+  world_readable: boolean;
+}
+
+export interface SpaceHierarchyRequest {
+  from?: string;
+  limit?: number;
+  suggested_only?: boolean;
+  max_depth?: number;
+}
+
+export interface SpaceHierarchyResponse {
+  next_batch?: string;
+  rooms: ReadonlyArray<SpaceHierarchyRoomsChunk>;
   events: ReadonlyArray<StateEvent<SpaceChildEvent>>;
 }

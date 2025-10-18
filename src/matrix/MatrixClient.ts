@@ -2,8 +2,8 @@ import type fetchFn from 'node-fetch';
 import {
   CreateRoomRequest,
   PersistedStateEvent,
-  SpaceSummaryRequest,
-  SpaceSummaryResponse,
+  SpaceHierarchyRequest,
+  SpaceHierarchyResponse,
 } from './types';
 
 interface CreateRoomResponse {
@@ -184,17 +184,21 @@ export class MatrixClient {
     );
   }
 
-  async getSpaceSummary(
+  async getSpaceHierarchy(
     roomId: string,
-    options: SpaceSummaryRequest = {}
-  ): Promise<SpaceSummaryResponse> {
+    options: SpaceHierarchyRequest = {}
+  ): Promise<SpaceHierarchyResponse> {
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(options)) {
+      if (value == null) continue;
+      params.append(key, String(value));
+    }
     const response = await this.sendRequest(
-      `/_matrix/client/unstable/org.matrix.msc2946/rooms/${roomId}/spaces`,
-      'post',
-      options
+      `/_matrix/client/v1/rooms/${roomId}/hierarchy?${String(params)}`,
+      'get'
     );
 
-    return (await response.json()) as SpaceSummaryResponse;
+    return (await response.json()) as SpaceHierarchyResponse;
   }
 
   private async sendRequest(
@@ -214,6 +218,9 @@ export class MatrixClient {
       headers['Content-Type'] = 'application/json';
     }
 
+    console.log(
+      `[MatrixClient] ${method.toUpperCase()} ${this.homeserverUrl}${endpoint}`
+    );
     const response = await this.fetch(`${this.homeserverUrl}${endpoint}`, {
       method,
       body: body && JSON.stringify(body),

@@ -4,6 +4,8 @@ import type {
   MembershipEvent,
   NameEvent,
   PersistedStateEvent,
+  SpaceHierarchyResponse,
+  SpaceHierarchyRoomsChunk,
   SpaceParentEvent,
   StateEvent,
   TextMessageEvent,
@@ -101,13 +103,29 @@ export class BlogService {
   }
 
   async getBlogWithPosts(id: string): Promise<BlogWithPostMetadata> {
-    const spaceSummary = await this.matrixClient.getSpaceSummary(id);
-    const blogRoom = spaceSummary.rooms.find((room) => room.room_id === id);
+    const rooms: SpaceHierarchyRoomsChunk[] = [];
+
+    let spaceHierarchy: SpaceHierarchyResponse;
+    let from: string | undefined = undefined;
+    do {
+      spaceHierarchy = await this.matrixClient.getSpaceHierarchy(id, {
+        from,
+        max_depth: 1,
+      });
+      rooms.push(...spaceHierarchy.rooms);
+      from = spaceHierarchy.next_batch;
+    } while (from != null);
+
+    const publicRooms = rooms.filter(
+      (room) => room.join_rule == null || room.join_rule === 'public'
+    );
+
+    const blogRoom = publicRooms.find((room) => room.room_id === id);
     if (!blogRoom) {
       throw new BlogServiceError('Could not find blog room');
     }
 
-    const posts = spaceSummary.rooms
+    const posts = publicRooms
       .filter((room) => room.room_id !== id)
       .map((room) => ({
         id: room.room_id,
